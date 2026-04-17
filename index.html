@@ -6,46 +6,45 @@
 <title>graphify, commit by commit</title>
 <style>
   :root{
-    --bg:#0f1115; --panel:#151821; --panel2:#1a1f2b; --ink:#d7dbe3; --dim:#8892a6;
-    --line:#262c3a; --accent:#7ab6ff; --accent2:#b48cff; --warn:#ffb86b; --ok:#7ee2a8; --del:#ff7a90;
-    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;
+    --bg:#ffffff; --panel:#fafaf8; --panel2:#f2f1ed; --ink:#242424; --soft:#3d3d3d; --dim:#6b6b6b;
+    --line:#e6e6e1; --accent:#1a6dd1; --accent2:#8a5bd0; --warn:#b07a2a; --ok:#2a7f57; --del:#c04258;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --serif:"Charter","Iowan Old Style","Source Serif Pro",Georgia,Cambria,"Times New Roman",Times,serif;
+    --sans:"Söhne","Helvetica Neue",Helvetica,-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
   }
-  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);margin:0;padding:0;line-height:1.55;font-size:15.5px}
-  main{max-width:880px;margin:0 auto;padding:48px 28px 120px}
-  h1,h2,h3{font-weight:600;letter-spacing:-.01em}
-  h1{font-size:2.1rem;margin:0 0 6px;color:#fff}
-  h2{font-size:1.35rem;margin:44px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
-  h3{font-size:1.05rem;margin:28px 0 8px;color:#eef1f8}
-  p{margin:8px 0 12px}
-  a{color:var(--accent);text-decoration:none;border-bottom:1px dotted #3a4a66}
-  a:hover{color:#a8cfff}
-  code,pre{font-family:var(--mono);font-size:.88rem}
-  code{background:#1c2230;padding:1px 6px;border-radius:4px;color:#e6c07b}
-  pre{background:#12151d;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;color:#cfd5e1}
-  .meta{color:var(--dim);font-size:.9rem;margin-bottom:30px}
-  .note{border-left:2px solid var(--accent2);background:#191627;padding:10px 14px;margin:14px 0;color:#d8d2ec;font-size:.92rem;border-radius:0 6px 6px 0}
-  .fig{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px 16px;margin:22px 0}
-  .fig h4{margin:0 0 8px;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
-  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:.88rem;color:var(--dim)}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--serif);margin:0;padding:0;line-height:1.7;font-size:20px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  main{max-width:700px;margin:0 auto;padding:72px 24px 140px}
+  h1,h2,h3,h4{font-family:var(--sans);font-weight:700;letter-spacing:-.015em;color:#111}
+  h1{font-size:2.4rem;line-height:1.2;margin:0 0 8px}
+  h2{font-size:1.55rem;margin:56px 0 12px}
+  h3{font-size:1.2rem;margin:36px 0 8px}
+  p{margin:0 0 20px}
+  a{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+  a:hover{color:#0b4b99}
+  code,pre{font-family:var(--mono)}
+  code{background:#f2f1ed;padding:2px 6px;border-radius:3px;color:#5b3b1f;font-size:.86em}
+  pre{background:#faf8f3;border:1px solid var(--line);border-radius:6px;padding:16px 18px;overflow-x:auto;color:#2d2d2d;font-size:.82em;line-height:1.55;margin:8px 0 24px}
+  pre code{background:transparent;padding:0;color:inherit;font-size:inherit}
+  .meta{color:var(--dim);font-family:var(--sans);font-size:.92rem;margin:0 0 48px;line-height:1.5}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 20px 18px;margin:28px 0}
+  .fig h4{margin:0 0 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);font-weight:600}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:.85rem;color:var(--soft);font-family:var(--sans)}
   .controls input[type=range]{flex:1;min-width:180px;accent-color:var(--accent)}
-  .controls button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:4px 10px;border-radius:6px;cursor:pointer;font:inherit;font-size:.85rem}
-  .controls button:hover{border-color:var(--accent);color:#fff}
-  .controls .tag{background:#1b2230;border:1px solid var(--line);padding:2px 8px;border-radius:10px;color:var(--ink);font-family:var(--mono);font-size:.78rem}
-  ul{padding-left:22px}
-  li{margin:4px 0}
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .controls button{background:#fff;border:1px solid #cfcfc7;color:var(--ink);padding:5px 12px;border-radius:4px;cursor:pointer;font:inherit;font-size:.82rem}
+  .controls button:hover{border-color:var(--accent);color:var(--accent)}
+  .controls .tag{background:#fff;border:1px solid var(--line);padding:2px 9px;border-radius:10px;color:var(--soft);font-family:var(--mono);font-size:.75rem}
+  ul,ol{padding-left:28px;margin:0 0 22px}
+  li{margin:6px 0}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:24px 0}
+  .two-col .fig{margin:0}
   @media (max-width:700px){.two-col{grid-template-columns:1fr}}
-  .legend{display:flex;gap:14px;font-size:.8rem;color:var(--dim);margin-top:8px;flex-wrap:wrap}
-  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend{display:flex;gap:16px;font-family:var(--sans);font-size:.78rem;color:var(--dim);margin-top:10px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
   .swatch{display:inline-block;width:10px;height:10px;border-radius:50%}
-  footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:.82rem}
+  footer{margin-top:96px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-family:var(--sans);font-size:.82rem}
   svg{display:block;width:100%;height:auto}
-  .commit-msg{font-family:var(--mono);font-size:.82rem;color:var(--dim);margin-top:6px;min-height:1.2em}
-  .kbd{font-family:var(--mono);background:#1c2230;border:1px solid var(--line);border-bottom-width:2px;padding:1px 6px;border-radius:4px;font-size:.82rem;color:#cfd5e1}
-  .diff-added{color:var(--ok)}
-  .diff-removed{color:var(--del)}
-  .diff-kept{color:var(--dim)}
+  .commit-msg{font-family:var(--mono);font-size:.78rem;color:var(--dim);margin-top:8px;min-height:1.2em}
+  b,strong{color:#111;font-weight:700}
 </style>
 </head>
 <body>
@@ -134,10 +133,10 @@ branch=$(git rev-parse --abbrev-ref HEAD)
     <span class="tag" id="commitTag">c0</span>
   </div>
   <div class="legend">
-    <span><span class="swatch" style="background:#7ab6ff"></span>reporting core</span>
-    <span><span class="swatch" style="background:#b48cff"></span>adapters</span>
-    <span><span class="swatch" style="background:#7ee2a8"></span>schema</span>
-    <span><span class="swatch" style="background:#ffb86b"></span>new / changed</span>
+    <span><span class="swatch" style="background:#1a6dd1"></span>reporting core</span>
+    <span><span class="swatch" style="background:#7a4bc7"></span>adapters</span>
+    <span><span class="swatch" style="background:#2a7f57"></span>schema</span>
+    <span><span class="swatch" style="background:#cf7a1f"></span>new / changed</span>
     <span>&nbsp;&middot;&nbsp;&nbsp;solid = EXTRACTED &middot; dashed = INFERRED</span>
   </div>
 </div>
@@ -229,7 +228,7 @@ diff &lt;(jq -S '.nodes|map(.id)|sort' .graphify-snapshots/main/graph.json) \\
   <div class="legend">
     <span><span class="swatch" style="background:var(--ok)"></span>added in poc</span>
     <span><span class="swatch" style="background:var(--del)"></span>removed from main</span>
-    <span><span class="swatch" style="background:#6b7280"></span>unchanged</span>
+    <span><span class="swatch" style="background:#8b8b85"></span>unchanged</span>
   </div>
 </div>
 
@@ -281,7 +280,7 @@ graphify explain "ReportBuilder"</code></pre>
 (function(){
   const svg = document.getElementById('graphMorph');
   const NS = 'http://www.w3.org/2000/svg';
-  const C = { core:'#7ab6ff', adapter:'#b48cff', schema:'#7ee2a8', new:'#ffb86b' };
+  const C = { core:'#1a6dd1', adapter:'#7a4bc7', schema:'#2a7f57', new:'#cf7a1f' };
 
   const N = {
     rb:  {x:220, y:170, c:'core',    label:'ReportBuilder'},
@@ -331,9 +330,9 @@ graphify explain "ReportBuilder"</code></pre>
       const line = document.createElementNS(NS,'line');
       line.setAttribute('x1',A.x); line.setAttribute('y1',A.y);
       line.setAttribute('x2',B.x); line.setAttribute('y2',B.y);
-      line.setAttribute('stroke', inf ? '#6b7a99' : '#9fb1d0');
-      line.setAttribute('stroke-width', inf ? 1 : 1.4);
-      line.setAttribute('stroke-opacity', inf ? .6 : .85);
+      line.setAttribute('stroke', inf ? '#a0a6b2' : '#4a5a78');
+      line.setAttribute('stroke-width', inf ? 1.2 : 1.6);
+      line.setAttribute('stroke-opacity', inf ? .75 : .9);
       if(inf) line.setAttribute('stroke-dasharray','4 3');
       g_e.appendChild(line);
     });
@@ -348,14 +347,14 @@ graphify explain "ReportBuilder"</code></pre>
       c.setAttribute('cx',n.x); c.setAttribute('cy',n.y);
       c.setAttribute('r', isNew ? 11 : 9);
       c.setAttribute('fill', fill);
-      c.setAttribute('stroke','#0f1115'); c.setAttribute('stroke-width',2);
+      c.setAttribute('stroke','#ffffff'); c.setAttribute('stroke-width',2.5);
       g.appendChild(c);
       const t = document.createElementNS(NS,'text');
       t.setAttribute('x', n.x); t.setAttribute('y', n.y + 24);
       t.setAttribute('text-anchor','middle');
       t.setAttribute('font-family','ui-monospace,Menlo,monospace');
       t.setAttribute('font-size','11');
-      t.setAttribute('fill','#d7dbe3');
+      t.setAttribute('fill','#3d3d3d');
       t.textContent = n.label;
       g.appendChild(t);
       svg.appendChild(g);
@@ -406,27 +405,27 @@ graphify explain "ReportBuilder"</code></pre>
     const base = document.createElementNS(NS,'line');
     base.setAttribute('x1',40); base.setAttribute('y1',120);
     base.setAttribute('x2',720); base.setAttribute('y2',120);
-    base.setAttribute('stroke','#262c3a'); base.setAttribute('stroke-width',2);
+    base.setAttribute('stroke','#d4d4ce'); base.setAttribute('stroke-width',2);
     svg.appendChild(base);
 
     const side = document.createElementNS(NS,'g');
     const rect = document.createElementNS(NS,'rect');
     rect.setAttribute('x',250); rect.setAttribute('y',200); rect.setAttribute('width',320);
     rect.setAttribute('height',40); rect.setAttribute('rx',6);
-    rect.setAttribute('fill','#1a1f2b'); rect.setAttribute('stroke','#262c3a');
+    rect.setAttribute('fill','#ffffff'); rect.setAttribute('stroke','#e6e6e1');
     side.appendChild(rect);
     const t = document.createElementNS(NS,'text');
     t.setAttribute('x',410); t.setAttribute('y',225);
     t.setAttribute('text-anchor','middle');
     t.setAttribute('font-family','ui-monospace,Menlo,monospace');
-    t.setAttribute('font-size','11'); t.setAttribute('fill','#8892a6');
+    t.setAttribute('font-size','11'); t.setAttribute('fill','#6b6b6b');
     t.textContent = 'opencode tool.execute.before plugin reads graph.json (async)';
     side.appendChild(t);
     svg.appendChild(side);
 
     const link = document.createElementNS(NS,'path');
     link.setAttribute('d','M 515 135 Q 515 180 410 200');
-    link.setAttribute('stroke','#3a4a66'); link.setAttribute('fill','none');
+    link.setAttribute('stroke','#b8b8b0'); link.setAttribute('fill','none');
     link.setAttribute('stroke-dasharray','3 3');
     svg.appendChild(link);
 
@@ -436,21 +435,21 @@ graphify explain "ReportBuilder"</code></pre>
       const c = document.createElementNS(NS,'circle');
       c.setAttribute('cx',s.x); c.setAttribute('cy',s.y);
       c.setAttribute('r',11);
-      c.setAttribute('fill','#151821'); c.setAttribute('stroke','#3a4a66'); c.setAttribute('stroke-width',2);
+      c.setAttribute('fill','#ffffff'); c.setAttribute('stroke','#cfcfc7'); c.setAttribute('stroke-width',2);
       c.setAttribute('data-idx',i);
       g.appendChild(c);
       const num = document.createElementNS(NS,'text');
       num.setAttribute('x',s.x); num.setAttribute('y',s.y+4);
       num.setAttribute('text-anchor','middle');
       num.setAttribute('font-family','ui-monospace,Menlo,monospace');
-      num.setAttribute('font-size','10'); num.setAttribute('fill','#8892a6');
+      num.setAttribute('font-size','10'); num.setAttribute('fill','#6b6b6b');
       num.textContent = i;
       g.appendChild(num);
       const lbl = document.createElementNS(NS,'text');
       lbl.setAttribute('x',s.x); lbl.setAttribute('y',s.y-22);
       lbl.setAttribute('text-anchor','middle');
       lbl.setAttribute('font-family','ui-monospace,Menlo,monospace');
-      lbl.setAttribute('font-size','11'); lbl.setAttribute('fill','#d7dbe3');
+      lbl.setAttribute('font-size','11'); lbl.setAttribute('fill','#242424');
       lbl.textContent = s.label;
       g.appendChild(lbl);
       svg.appendChild(g);
@@ -467,11 +466,11 @@ graphify explain "ReportBuilder"</code></pre>
     const circles = svg.querySelectorAll('circle[data-idx]');
     circles.forEach((c,i)=>{
       if(i <= active){
-        c.setAttribute('fill', i === active ? '#7ab6ff' : '#2a3a55');
-        c.setAttribute('stroke', i === active ? '#a8cfff' : '#3a4a66');
+        c.setAttribute('fill', i === active ? '#1a6dd1' : '#cfe0f5');
+        c.setAttribute('stroke', i === active ? '#1a6dd1' : '#9ab8dc');
       } else {
-        c.setAttribute('fill','#151821');
-        c.setAttribute('stroke','#3a4a66');
+        c.setAttribute('fill','#ffffff');
+        c.setAttribute('stroke','#cfcfc7');
       }
     });
     tag.textContent = Math.max(0,active+1) + ' / ' + steps.length;
@@ -523,9 +522,9 @@ graphify explain "ReportBuilder"</code></pre>
   let onlyChanges = false;
 
   function colour(status, kind){
-    if(status==='kept')    return kind==='node' ? '#6b7280' : '#445066';
-    if(status==='added')   return kind==='node' ? '#7ee2a8' : '#3e8d6a';
-    if(status==='removed') return kind==='node' ? '#ff7a90' : '#8e4656';
+    if(status==='kept')    return kind==='node' ? '#8b8b85' : '#bdbdb5';
+    if(status==='added')   return kind==='node' ? '#2a7f57' : '#5ba57f';
+    if(status==='removed') return kind==='node' ? '#c04258' : '#d88a97';
   }
 
   function opacityForT(status, t){
@@ -563,14 +562,14 @@ graphify explain "ReportBuilder"</code></pre>
       c.setAttribute('cx',n.x); c.setAttribute('cy',n.y);
       c.setAttribute('r', n.status==='kept'?8:10);
       c.setAttribute('fill', colour(n.status,'node'));
-      c.setAttribute('stroke','#0f1115'); c.setAttribute('stroke-width',2);
+      c.setAttribute('stroke','#ffffff'); c.setAttribute('stroke-width',2.5);
       g.appendChild(c);
       const label = document.createElementNS(NS,'text');
       label.setAttribute('x',n.x); label.setAttribute('y', n.y - 14);
       label.setAttribute('text-anchor','middle');
       label.setAttribute('font-family','ui-monospace,Menlo,monospace');
       label.setAttribute('font-size','10.5');
-      label.setAttribute('fill','#d7dbe3');
+      label.setAttribute('fill','#3d3d3d');
       label.textContent = n.label;
       g.appendChild(label);
       svg.appendChild(g);
@@ -579,21 +578,21 @@ graphify explain "ReportBuilder"</code></pre>
     const left = document.createElementNS(NS,'text');
     left.setAttribute('x',20); left.setAttribute('y',30);
     left.setAttribute('font-family','ui-monospace,Menlo,monospace');
-    left.setAttribute('font-size','11'); left.setAttribute('fill','#8892a6');
+    left.setAttribute('font-size','11'); left.setAttribute('fill','#6b6b6b');
     left.textContent = 'AS OF main';
     svg.appendChild(left);
     const right = document.createElementNS(NS,'text');
     right.setAttribute('x',740); right.setAttribute('y',30);
     right.setAttribute('text-anchor','end');
     right.setAttribute('font-family','ui-monospace,Menlo,monospace');
-    right.setAttribute('font-size','11'); right.setAttribute('fill','#8892a6');
+    right.setAttribute('font-size','11'); right.setAttribute('fill','#6b6b6b');
     right.textContent = 'AS OF poc';
     svg.appendChild(right);
 
     const bar = document.createElementNS(NS,'line');
     bar.setAttribute('x1', 20 + t*720); bar.setAttribute('y1', 10);
     bar.setAttribute('x2', 20 + t*720); bar.setAttribute('y2', 20);
-    bar.setAttribute('stroke','#7ab6ff'); bar.setAttribute('stroke-width',2);
+    bar.setAttribute('stroke','#1a6dd1'); bar.setAttribute('stroke-width',2);
     svg.appendChild(bar);
   }
 
