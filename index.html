@@ -66,6 +66,8 @@
 
 <p>Confidence tags are the bit that keeps it honest. <code>EXTRACTED</code> means it is literally in the source (an <code>import</code>, a direct call site). <code>INFERRED</code> is a call-graph second pass or a co-occurrence guess, with a numeric <code>confidence_score</code> on the edge. <code>AMBIGUOUS</code> surfaces in the report for human review. You can filter on this when you query.</p>
 
+<p>Two design choices under the hood matter for how this lands in practice. Docstrings and rationale comments (<code># WHY:</code>, <code># NOTE:</code>, <code># HACK:</code>, <code># IMPORTANT:</code>) are pulled out as <code>rationale_for</code> nodes, so the graph captures not just what the code does but why it was written that way. And clustering is Leiden over the graph topology itself, with no embeddings and no vector store: the <code>semantically_similar_to</code> edges the LLM extracts are already in the graph, so they shape community detection directly. That is what makes per-commit rebuilds cheap on the structural side: tree-sitter AST (25 languages) plus NetworkX + Leiden recluster is milliseconds, and the LLM expense sits entirely in the doc / PDF / image pass.</p>
+
 <h2>The concrete setup (ground truth)</h2>
 
 <p>Install via pipx so the CLI is isolated from project venvs:</p>
@@ -143,7 +145,7 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 
 <p>What you are watching in miniature: at <code>c0</code> the graph is a thin spine. A few commits in, an adapter module enters and immediately picks up a high-confidence <code>calls</code> edge to the core. Later, a refactor splits a god node; the inferred edges re-route. The final commit adds a schema cluster that only connects through one import.</p>
 
-<p>In a real repo the shapes are bigger and noisier, but the mechanic is the same. Committing <code>graphify-out/</code> (minus the <code>cache/</code> subdir) means every commit hash maps one-to-one to a graph snapshot, and <code>git log -- graphify-out/GRAPH_REPORT.md</code> gives you a narrative of structural change that is separate from the line-diff narrative.</p>
+<p>In a real repo the shapes are bigger and noisier, but the mechanic is the same. For scale, the project'\''s own worked examples give concrete shapes: a 6-file HTTP client comes in at 144 nodes / 330 edges / 6 communities; a 52-file mixed corpus (Karpathy repos + 5 papers + 4 diagrams) lands at 285 nodes / 340 edges / 53 communities with a ~71x query-token reduction (~1.7k tokens per query vs ~123k reading raw files). Those numbers are self-reported; treat them as directional, not a spec. Committing <code>graphify-out/</code> (minus the <code>cache/</code> subdir) means every commit hash maps one-to-one to a graph snapshot, and <code>git log -- graphify-out/GRAPH_REPORT.md</code> gives you a narrative of structural change that is separate from the line-diff narrative.</p>
 
 <h2>Per-commit vs per-branch: two different questions</h2>
 
@@ -234,6 +236,8 @@ diff &lt;(jq -S '.nodes|map(.id)|sort' .graphify-snapshots/main/graph.json) \\
 
 <p>The interesting read is not the count of added nodes (that roughly tracks lines of code). It is the added edges that cross community boundaries. A <code>poc</code> branch that introduces a new reporting adapter and connects it to an existing payments cluster via an <code>INFERRED</code> call is a structural signal that merge review should linger on that seam.</p>
 
+<p>Two edge shapes are especially worth diffing on top of the usual <code>calls</code> / <code>imports</code> set. <code>semantically_similar_to</code> edges that appear only on <code>poc</code> flag code solving the same problem without calling each other, which is often a duplication smell introduced by the branch. And hyperedges, which group 3+ nodes into a single relation (all classes implementing a shared protocol, all concepts from one paper section), are a compact way to see whether a refactor pulled new members into an existing group or invented a new one. <code>jq</code> over <code>graph.json</code> handles both.</p>
+
 <h2>Practical workflows</h2>
 
 <h3>Bisecting a structural regression</h3>
@@ -267,7 +271,17 @@ graphify explain "ReportBuilder"</code></pre>
 
 <p>The branch-snapshot trick gets you <code>AS OF &lt;branch&gt;</code>. It does not get you <code>AS OF &lt;timestamp&gt;</code> or <code>AS OF &lt;commit&gt;</code> for arbitrary commits, because you only keep snapshots for branches you actually checked out. If you need a dense time axis (for example, to animate a full refactor across a hundred commits the way Figure 1 does with six), the honest answer is: script a <code>git worktree</code>, iterate commits, run <code>graphify update --no-viz</code>, archive the <code>graph.json</code>, move on. Minutes, not seconds, but perfectly tractable, and you only do it when you want the full film rather than the latest frame.</p>
 
-<p>For anything heavier (cross-repo graphs, a queryable graph DB, continuous graph over a fleet of machines) you are out of graphify'\''s stated scope and into its sibling project, Penpax, or a real graph DB backend. For a single-repo reporting PoC the lightweight per-branch snapshot pattern is the right amount of machinery.</p>
+<p>If query volume against <code>graph.json</code> becomes the bottleneck before repo scope does, graphify ships an MCP server (<code>python -m graphify.serve graphify-out/graph.json</code>, install extras via <code>graphifyy[mcp]</code>) that exposes <code>query_graph</code>, <code>get_node</code>, <code>get_neighbors</code>, and <code>shortest_path</code> as tools. The assistant stops shelling out to the CLI per question and starts calling a structured API against the snapshot you pointed it at — which composes nicely with the per-branch snapshot directory: one <code>serve</code> invocation per branch, wired into the assistant'\''s <code>.mcp.json</code>.</p>
+
+<p>For anything heavier (cross-repo graphs, a queryable graph DB, continuous graph over a fleet of machines) you are out of graphify'\''s stated scope and into its sibling project, Penpax, or a real graph DB backend. <code>--neo4j-push bolt://...</code> is the obvious escape hatch when you outgrow <code>graph.json</code> but not the extraction pipeline. For a single-repo reporting PoC the lightweight per-branch snapshot pattern is the right amount of machinery.</p>
+
+<h2>Sources</h2>
+<ul style="font-size:.92rem">
+  <li><a href="https://github.com/safishamsi/graphify">safishamsi/graphify</a> (README, ARCHITECTURE.md, SECURITY.md) — v0.4.20 at time of writing</li>
+  <li><a href="https://graphify.net/">graphify.net</a> — worked example counts (httpx, Karpathy corpus) and pipeline stage breakdown</li>
+  <li><a href="https://www.analyticsvidhya.com/blog/2026/04/graphify-guide/">Analytics Vidhya, "From Karpathy'\''s LLM Wiki to Graphify"</a> — independent walkthrough of the three-pass model and always-on hook wiring</li>
+  <li><a href="https://medium.com/@mustafa.gencc94/graphify-build-a-knowledge-graph-from-your-entire-codebase-without-sending-your-code-to-anyone-1b6924474b50">Mustafa Genc, Medium</a> — data-residency analysis and caveats on the 71.5x claim</li>
+</ul>
 
 <footer>
   built: <span id="builtDate"></span> &middot; single-file HTML, vanilla JS / SVG, no build step &middot; cache-bust via <code>?v=ts</code>
