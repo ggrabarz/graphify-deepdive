@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>graphify, commit by commit</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#151821; --panel2:#1a1f2b; --ink:#d7dbe3; --dim:#8892a6;
+    --line:#262c3a; --accent:#7ab6ff; --accent2:#b48cff; --warn:#ffb86b; --ok:#7ee2a8; --del:#ff7a90;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;
+  }
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);margin:0;padding:0;line-height:1.55;font-size:15.5px}
+  main{max-width:880px;margin:0 auto;padding:48px 28px 120px}
+  h1,h2,h3{font-weight:600;letter-spacing:-.01em}
+  h1{font-size:2.1rem;margin:0 0 6px;color:#fff}
+  h2{font-size:1.35rem;margin:44px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:1.05rem;margin:28px 0 8px;color:#eef1f8}
+  p{margin:8px 0 12px}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px dotted #3a4a66}
+  a:hover{color:#a8cfff}
+  code,pre{font-family:var(--mono);font-size:.88rem}
+  code{background:#1c2230;padding:1px 6px;border-radius:4px;color:#e6c07b}
+  pre{background:#12151d;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;color:#cfd5e1}
+  .meta{color:var(--dim);font-size:.9rem;margin-bottom:30px}
+  .note{border-left:2px solid var(--accent2);background:#191627;padding:10px 14px;margin:14px 0;color:#d8d2ec;font-size:.92rem;border-radius:0 6px 6px 0}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px 16px;margin:22px 0}
+  .fig h4{margin:0 0 8px;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:.88rem;color:var(--dim)}
+  .controls input[type=range]{flex:1;min-width:180px;accent-color:var(--accent)}
+  .controls button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:4px 10px;border-radius:6px;cursor:pointer;font:inherit;font-size:.85rem}
+  .controls button:hover{border-color:var(--accent);color:#fff}
+  .controls .tag{background:#1b2230;border:1px solid var(--line);padding:2px 8px;border-radius:10px;color:var(--ink);font-family:var(--mono);font-size:.78rem}
+  ul{padding-left:22px}
+  li{margin:4px 0}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:700px){.two-col{grid-template-columns:1fr}}
+  .legend{display:flex;gap:14px;font-size:.8rem;color:var(--dim);margin-top:8px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:50%}
+  footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:.82rem}
+  svg{display:block;width:100%;height:auto}
+  .commit-msg{font-family:var(--mono);font-size:.82rem;color:var(--dim);margin-top:6px;min-height:1.2em}
+  .kbd{font-family:var(--mono);background:#1c2230;border:1px solid var(--line);border-bottom-width:2px;padding:1px 6px;border-radius:4px;font-size:.82rem;color:#cfd5e1}
+  .diff-added{color:var(--ok)}
+  .diff-removed{color:var(--del)}
+  .diff-kept{color:var(--dim)}
+</style>
+</head>
+<body>
+<main>
+
+<h1>graphify, commit by commit</h1>
+<div class="meta">A working-notes piece on treating graphify output as a first-class git artifact: what the tool does, where it fits in the commit / checkout loop, and how to fake <code>AS OF &lt;branch&gt;</code> time-travel over your code graph without a database.</div>
+
+<h2>What graphify actually is</h2>
+
+<p>graphify (the <code>safishamsi/graphify</code> project, package <code>graphifyy</code> on PyPI) takes a folder and produces a knowledge graph of what is in it. For a Java / Python / TS repo the interesting part is the code pass: tree-sitter parses files into ASTs, a deterministic walker pulls classes, functions, imports, and call edges, and a second pass adds inferred cross-file <code>calls</code> edges. Docs, PDFs, and images go through an LLM subagent pass; video and audio are transcribed locally with faster-whisper. Everything merges into a NetworkX graph, Leiden clusters it by edge density, and the output lands in <code>graphify-out/</code>.</p>
+
+<p>Three files matter in practice:</p>
+<ul>
+  <li><code>graphify-out/graph.json</code>: the canonical structure. Nodes with <code>id</code>, <code>label</code>, <code>source_file</code>, <code>source_location</code>; edges with <code>relation</code> (<code>calls</code>, <code>imports</code>, <code>uses</code>, etc.) and <code>confidence</code> tagged <code>EXTRACTED</code>, <code>INFERRED</code>, or <code>AMBIGUOUS</code>.</li>
+  <li><code>graphify-out/GRAPH_REPORT.md</code>: one page, god nodes first, then communities and surprising connections. This is what AGENTS.md / CLAUDE.md point assistants at.</li>
+  <li><code>graphify-out/graph.html</code>: a vis.js viewer, pan / zoom / search, opens in any browser.</li>
+</ul>
+
+<p>Confidence tags are the bit that keeps it honest. <code>EXTRACTED</code> means it is literally in the source (an <code>import</code>, a direct call site). <code>INFERRED</code> is a call-graph second pass or a co-occurrence guess, with a numeric <code>confidence_score</code> on the edge. <code>AMBIGUOUS</code> surfaces in the report for human review. You can filter on this when you query.</p>
+
+<h2>The concrete setup (ground truth)</h2>
+
+<p>Install via pipx so the CLI is isolated from project venvs:</p>
+
+<pre><code>pipx install graphifyy
+# binary lands at $HOME/.local/bin/graphify</code></pre>
+
+<p>Inside a repo (here: <code>platform-capabilities</code>, scoped to reporting-only work on a <code>poc</code> branch), three files do most of the configuration work:</p>
+
+<pre><code># .graphifyignore  (same syntax as .gitignore)
+# Narrow to the reporting surface so the graph is not dominated by unrelated modules.
+node_modules/
+target/
+build/
+dist/
+**/generated/**
+# everything except reporting:
+/platform-treasury/
+/platform-payments/
+/platform-connectivity/
+# keep:
+!/platform-reporting/</code></pre>
+
+<pre><code># AGENTS.md  (committed; read by OpenCode and other AGENTS-aware assistants)
+## graphify
+
+A knowledge graph of this repo lives under `graphify-out/`.
+Before searching raw files for architecture questions, read
+`graphify-out/GRAPH_REPORT.md`. For specific traversals use:
+
+    graphify query "..." --graph graphify-out/graph.json
+    graphify path  "NodeA" "NodeB"
+    graphify explain "NodeName"
+
+Prefer graph edges over keyword grep when answering "what calls X"
+or "where is Y defined".</code></pre>
+
+<p>Then the OpenCode plugin, installed with <code>graphify opencode install</code>, drops a <code>tool.execute.before</code> hook in <code>.opencode/plugins/graphify.js</code> and registers it in <code>opencode.json</code>. Before any bash tool call the plugin checks whether <code>graphify-out/graph.json</code> exists and injects a reminder into the tool output, so the assistant is nudged toward the graph rather than <code>grep -r</code>.</p>
+
+<p>Git hooks come from <code>graphify hook install</code>, which writes <code>post-commit</code> and <code>post-checkout</code> hooks. Guard them to the branch you care about so a drive-by checkout of <code>main</code> does not trigger a rebuild:</p>
+
+<pre><code># .git/hooks/post-commit  (snippet, after `graphify hook install`)
+#!/usr/bin/env bash
+set -e
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" = "poc" ] || exit 0
+"$HOME/.local/bin/graphify" update . --no-viz &gt;/dev/null 2&gt;&amp;1 || {
+  echo "graphify: rebuild failed on $(git rev-parse --short HEAD)" &gt;&amp;2
+  exit 1
+}</code></pre>
+
+<p>Same pattern for <code>post-checkout</code>, with the branch check comparing the new <code>HEAD</code>. Non-zero exit on failure is deliberate: a silent stale graph is worse than an obvious broken one.</p>
+
+<h2>Animation 1: the graph, across commits</h2>
+
+<p>The point of running graphify per commit is that a code graph is a function of the tree. Scrub the commit slider below. Nodes and edges appear, disappear, and rewire as the synthetic history progresses. Colors mark community membership (Leiden output); dashed edges are <code>INFERRED</code>.</p>
+
+<div class="fig" id="fig1">
+  <h4>Figure 1 &middot; dependency graph morph across commits</h4>
+  <svg id="graphMorph" viewBox="0 0 760 360" aria-label="Dependency graph morphing across commits"></svg>
+  <div class="commit-msg" id="commitMsg"></div>
+  <div class="controls">
+    <button id="playBtn">play</button>
+    <input type="range" id="commitSlider" min="0" max="5" step="1" value="0">
+    <span class="tag" id="commitTag">c0</span>
+  </div>
+  <div class="legend">
+    <span><span class="swatch" style="background:#7ab6ff"></span>reporting core</span>
+    <span><span class="swatch" style="background:#b48cff"></span>adapters</span>
+    <span><span class="swatch" style="background:#7ee2a8"></span>schema</span>
+    <span><span class="swatch" style="background:#ffb86b"></span>new / changed</span>
+    <span>&nbsp;&middot;&nbsp;&nbsp;solid = EXTRACTED &middot; dashed = INFERRED</span>
+  </div>
+</div>
+
+<p>What you are watching in miniature: at <code>c0</code> the graph is a thin spine. A few commits in, an adapter module enters and immediately picks up a high-confidence <code>calls</code> edge to the core. Later, a refactor splits a god node; the inferred edges re-route. The final commit adds a schema cluster that only connects through one import.</p>
+
+<p>In a real repo the shapes are bigger and noisier, but the mechanic is the same. Committing <code>graphify-out/</code> (minus the <code>cache/</code> subdir) means every commit hash maps one-to-one to a graph snapshot, and <code>git log -- graphify-out/GRAPH_REPORT.md</code> gives you a narrative of structural change that is separate from the line-diff narrative.</p>
+
+<h2>Per-commit vs per-branch: two different questions</h2>
+
+<p>Both modes have a place; they answer different questions.</p>
+
+<div class="two-col">
+  <div class="fig">
+    <h4>per commit</h4>
+    <p style="font-size:.92rem">Rebuild after every commit on the working branch. Fast because the AST pass is cheap and the SHA256 cache short-circuits unchanged files. Good for: bisecting structural regressions, watching a refactor land over many small commits, keeping the always-on assistant context in sync with <code>HEAD</code>.</p>
+  </div>
+  <div class="fig">
+    <h4>per branch</h4>
+    <p style="font-size:.92rem">Rebuild on branch switch, then snapshot the result into a per-branch directory (see below). Good for: comparing two long-lived lines of work, answering "how did the graph look at the tip of <code>poc</code> last Friday", or driving a poor-man'\''s <code>AS OF</code> query.</p>
+  </div>
+</div>
+
+<h2>Animation 2: the hook flow</h2>
+
+<p>What actually runs when you type <code>git commit</code> or <code>git checkout</code>, once graphify is wired in. Step through the timeline to see where the graph rebuild sits, where the branch guard kicks in, and where the OpenCode plugin reads the output. The late steps are asynchronous from git'\''s point of view; the hook finishes when the rebuild finishes.</p>
+
+<div class="fig" id="fig2">
+  <h4>Figure 2 &middot; post-commit / post-checkout flow</h4>
+  <svg id="hookFlow" viewBox="0 0 760 260" aria-label="Hook flow timeline"></svg>
+  <div class="controls">
+    <button id="stepBtn">step</button>
+    <button id="resetBtn">reset</button>
+    <span class="tag" id="stepTag">0 / 7</span>
+    <span id="stepDesc" style="color:var(--ink)"></span>
+  </div>
+</div>
+
+<p>Two subtleties worth calling out:</p>
+<ul>
+  <li>The rebuild writes back into the working tree at <code>graphify-out/</code>. If you then <code>git add graphify-out/</code> and amend, you have a fixed point: commit hash references its own graph. Cleaner, but costs an amend on every commit. Most setups skip this and simply commit the graph on a cadence, or only on merges into the integration branch.</li>
+  <li>The <code>post-checkout</code> hook fires on file checkouts too, not only branch switches. The first positional argument is <code>0</code> for a file checkout and <code>1</code> for a branch checkout; guard on it or you will rebuild on every <code>git checkout -- some-file</code>.</li>
+</ul>
+
+<pre><code># .git/hooks/post-checkout
+#!/usr/bin/env bash
+prev_head=$1
+new_head=$2
+is_branch=$3
+[ "$is_branch" = "1" ] || exit 0       # ignore file checkouts
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" = "poc" ] || exit 0        # scope to the working branch
+"$HOME/.local/bin/graphify" update . --no-viz || exit 1
+
+# snapshot per branch for AS OF queries
+snap=".graphify-snapshots/$branch"
+mkdir -p "$snap"
+cp graphify-out/graph.json       "$snap/graph.json"
+cp graphify-out/GRAPH_REPORT.md  "$snap/GRAPH_REPORT.md"</code></pre>
+
+<h2>Poor man'\''s AS OF: branch snapshots as a time axis</h2>
+
+<p>graphify does not know about time. It knows about the filesystem it was pointed at. But git already has a time axis, and branches are named handles on that axis. If you copy <code>graphify-out/graph.json</code> into <code>.graphify-snapshots/&lt;branch&gt;/</code> after every rebuild, you can answer questions of the form "what did the code graph look like as of the tip of <code>&lt;branch&gt;</code>" by loading the right file.</p>
+
+<p>The query side is then a small wrapper:</p>
+
+<pre><code>graphify query "what calls ReportBuilder?" \\
+  --graph .graphify-snapshots/poc/graph.json
+
+# diff two snapshots
+diff &lt;(jq -S '.nodes|map(.id)|sort' .graphify-snapshots/main/graph.json) \\
+     &lt;(jq -S '.nodes|map(.id)|sort' .graphify-snapshots/poc/graph.json)</code></pre>
+
+<p>This is not a database and it is not transactional. It is four lines of shell and a directory. But you get the one property that matters: a stable, reproducible graph per branch that the assistant can read, the CLI can query, and you can diff.</p>
+
+<h2>Animation 3: AS OF slider (snapshot diff)</h2>
+
+<p>Drag the slider to interpolate between two snapshots: <code>main</code> on the left, <code>poc</code> on the right. Green nodes were added on <code>poc</code>, red were removed, grey are unchanged. Edges are diffed the same way. This is what a <code>graphify diff</code> command could look like; today you build it out of <code>jq</code> and set operations on <code>graph.json</code>.</p>
+
+<div class="fig" id="fig3">
+  <h4>Figure 3 &middot; AS OF slider, main vs poc</h4>
+  <svg id="asofDiff" viewBox="0 0 760 320" aria-label="AS OF snapshot diff"></svg>
+  <div class="controls">
+    <span class="tag">main</span>
+    <input type="range" id="asofSlider" min="0" max="100" step="1" value="0">
+    <span class="tag">poc</span>
+    <button id="asofToggle">show only changes</button>
+  </div>
+  <div class="legend">
+    <span><span class="swatch" style="background:var(--ok)"></span>added in poc</span>
+    <span><span class="swatch" style="background:var(--del)"></span>removed from main</span>
+    <span><span class="swatch" style="background:#6b7280"></span>unchanged</span>
+  </div>
+</div>
+
+<p>The interesting read is not the count of added nodes (that roughly tracks lines of code). It is the added edges that cross community boundaries. A <code>poc</code> branch that introduces a new reporting adapter and connects it to an existing payments cluster via an <code>INFERRED</code> call is a structural signal that merge review should linger on that seam.</p>
+
+<h2>Practical workflows</h2>
+
+<h3>Bisecting a structural regression</h3>
+<p>Somewhere in the last twenty commits, a core abstraction grew a dependency it should not have. Standard <code>git bisect</code> over tests will not catch it. Instead, at each bisect step, run <code>graphify path "Bad" "ShouldNotReach"</code> on the snapshot and let a non-zero hop count be the "good" signal. A minute per step, converges in log<sub>2</sub>(N).</p>
+
+<h3>Review aid for long-lived branches</h3>
+<p>On PR open, a CI job checks out both <code>base</code> and <code>head</code>, runs <code>graphify update</code> on each, and posts the node / edge diff as a PR comment. You see "3 new god nodes, 11 new cross-community edges" before you read any line diff. Cheap because the AST pass is deterministic and does not need the LLM.</p>
+
+<h3>Agent context scoping</h3>
+<p><code>.graphifyignore</code> earns its keep here. On a monorepo, a full graph is noisy and expensive. Scoping to one functional area (the reporting-only pattern above) keeps <code>GRAPH_REPORT.md</code> focused so the assistant'\''s always-on context actually helps. The patterns work even when the tool is run from a subfolder, so one root file handles multiple entry points.</p>
+
+<h3>Asking "what connects A to B"</h3>
+<p>The <code>path</code> and <code>explain</code> commands are the high-value ones in day-to-day work:</p>
+<pre><code>graphify path "ReportBuilder" "JdbcReportWriter"
+graphify explain "ReportBuilder"</code></pre>
+<p>Output includes relation types, confidence tags, and source locations, so it is a good intermediate block to hand to an LLM without pasting the whole repo.</p>
+
+<h2>Pitfalls</h2>
+
+<ul>
+  <li><b>Inferred edges lie sometimes.</b> The <code>INFERRED</code> tag is there because the call-graph second pass can wire up false positives, especially around dynamic dispatch, Java reflection, and any framework that resolves beans at runtime. Filter by <code>confidence_score</code> when it matters; do not treat inferred edges as ground truth in load-bearing tooling.</li>
+  <li><b>Hook loops.</b> If the hook commits <code>graphify-out/</code>, and your CI then runs the hook again, you can trip rebuild storms. Easiest fix: <code>[ -n "$GIT_AUTHOR_DATE" ] &amp;&amp; exit 0</code> style guards, or just do not amend on the hook path.</li>
+  <li><b>Cache invalidation.</b> The SHA256 cache keys on file content, not on extractor version. When you upgrade graphify, blow away <code>graphify-out/cache/</code> before your first rebuild, otherwise you will mix old and new extractions silently.</li>
+  <li><b>Committing the viewer.</b> <code>graph.html</code> is big and changes on every rebuild. In typical setups you <code>.gitignore</code> it and commit only <code>graph.json</code> and <code>GRAPH_REPORT.md</code>. Rebuild the viewer on demand.</li>
+  <li><b>Branch-scoped hooks and detached HEAD.</b> <code>git rev-parse --abbrev-ref HEAD</code> returns <code>HEAD</code> when detached. The branch guard will correctly skip, which is what you want for a bisect session; just remember the graph will not track that.</li>
+  <li><b>Cost.</b> Code extraction is local and cheap. The expensive pass is docs / PDFs / images, which calls the assistant'\''s model API. If your branch mostly changes code, prefer <code>graphify update --no-viz</code> (AST-only incremental) and reserve full re-extractions for doc changes.</li>
+  <li><b>AGENTS.md discipline.</b> Commit it. The moment it lives only in one developer'\''s tree, the assistant behaviour diverges per machine and you lose the main reason to run this setup on a team.</li>
+</ul>
+
+<h2>Where this stops being enough</h2>
+
+<p>The branch-snapshot trick gets you <code>AS OF &lt;branch&gt;</code>. It does not get you <code>AS OF &lt;timestamp&gt;</code> or <code>AS OF &lt;commit&gt;</code> for arbitrary commits, because you only keep snapshots for branches you actually checked out. If you need a dense time axis (for example, to animate a full refactor across a hundred commits the way Figure 1 does with six), the honest answer is: script a <code>git worktree</code>, iterate commits, run <code>graphify update --no-viz</code>, archive the <code>graph.json</code>, move on. Minutes, not seconds, but perfectly tractable, and you only do it when you want the full film rather than the latest frame.</p>
+
+<p>For anything heavier (cross-repo graphs, a queryable graph DB, continuous graph over a fleet of machines) you are out of graphify'\''s stated scope and into its sibling project, Penpax, or a real graph DB backend. For a single-repo reporting PoC the lightweight per-branch snapshot pattern is the right amount of machinery.</p>
+
+<footer>
+  built: <span id="builtDate"></span> &middot; single-file HTML, vanilla JS / SVG, no build step &middot; cache-bust via <code>?v=ts</code>
+</footer>
+
+</main>
+
+<script>
+/* ---------- Figure 1: dependency graph morph across commits ---------- */
+(function(){
+  const svg = document.getElementById('graphMorph');
+  const NS = 'http://www.w3.org/2000/svg';
+  const C = { core:'#7ab6ff', adapter:'#b48cff', schema:'#7ee2a8', new:'#ffb86b' };
+
+  const N = {
+    rb:  {x:220, y:170, c:'core',    label:'ReportBuilder'},
+    rs:  {x:120, y:110, c:'core',    label:'ReportService'},
+    rq:  {x:120, y:230, c:'core',    label:'QueryPlanner'},
+    jw:  {x:380, y:120, c:'adapter', label:'JdbcWriter'},
+    sw:  {x:380, y:220, c:'adapter', label:'S3Writer'},
+    sch: {x:540, y:170, c:'schema',  label:'ReportSchema'},
+    col: {x:640, y:110, c:'schema',  label:'ColumnSpec'},
+    agg: {x:640, y:230, c:'schema',  label:'Aggregator'},
+    cache:{x:260, y:60, c:'core',    label:'ResultCache'},
+  };
+
+  const commits = [
+    { msg:'c0 initial: skeleton service + planner', nodes:['rb','rs','rq'],
+      edges:[['rs','rb',false],['rq','rb',false]] },
+    { msg:'c1 add JDBC writer adapter', nodes:['rb','rs','rq','jw'],
+      edges:[['rs','rb',false],['rq','rb',false],['rb','jw',false],['rq','jw',true]] },
+    { msg:'c2 add S3 writer, share adapter contract', nodes:['rb','rs','rq','jw','sw'],
+      edges:[['rs','rb',false],['rq','rb',false],['rb','jw',false],['rb','sw',false],['rq','jw',true],['rq','sw',true]] },
+    { msg:'c3 introduce schema cluster', nodes:['rb','rs','rq','jw','sw','sch','col','agg'],
+      edges:[['rs','rb',false],['rq','rb',false],['rb','jw',false],['rb','sw',false],
+             ['sch','col',false],['sch','agg',false],['rq','sch',false],['rq','jw',true],['rq','sw',true]] },
+    { msg:'c4 refactor: split ReportBuilder, add ResultCache', nodes:['rb','rs','rq','jw','sw','sch','col','agg','cache'],
+      edges:[['rs','rb',false],['rq','rb',false],['rb','cache',false],['cache','jw',false],['cache','sw',false],
+             ['sch','col',false],['sch','agg',false],['rq','sch',false],['rq','cache',true]] },
+    { msg:'c5 drop direct rq->sch, route via rb', nodes:['rb','rs','rq','jw','sw','sch','col','agg','cache'],
+      edges:[['rs','rb',false],['rq','rb',false],['rb','cache',false],['cache','jw',false],['cache','sw',false],
+             ['sch','col',false],['sch','agg',false],['rb','sch',false],['rq','cache',true]] },
+  ];
+
+  const slider = document.getElementById('commitSlider');
+  const tag = document.getElementById('commitTag');
+  const msg = document.getElementById('commitMsg');
+  const playBtn = document.getElementById('playBtn');
+  slider.max = commits.length - 1;
+
+  function render(idx, prevIdx){
+    const state = commits[idx];
+    const prev = commits[prevIdx ?? idx];
+    const prevNodes = new Set(prev.nodes);
+    svg.innerHTML = '';
+
+    const g_e = document.createElementNS(NS,'g');
+    state.edges.forEach(([a,b,inf])=>{
+      const A = N[a], B = N[b];
+      const line = document.createElementNS(NS,'line');
+      line.setAttribute('x1',A.x); line.setAttribute('y1',A.y);
+      line.setAttribute('x2',B.x); line.setAttribute('y2',B.y);
+      line.setAttribute('stroke', inf ? '#6b7a99' : '#9fb1d0');
+      line.setAttribute('stroke-width', inf ? 1 : 1.4);
+      line.setAttribute('stroke-opacity', inf ? .6 : .85);
+      if(inf) line.setAttribute('stroke-dasharray','4 3');
+      g_e.appendChild(line);
+    });
+    svg.appendChild(g_e);
+
+    state.nodes.forEach(id=>{
+      const n = N[id];
+      const isNew = !prevNodes.has(id);
+      const fill = isNew ? C.new : C[n.c];
+      const g = document.createElementNS(NS,'g');
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('cx',n.x); c.setAttribute('cy',n.y);
+      c.setAttribute('r', isNew ? 11 : 9);
+      c.setAttribute('fill', fill);
+      c.setAttribute('stroke','#0f1115'); c.setAttribute('stroke-width',2);
+      g.appendChild(c);
+      const t = document.createElementNS(NS,'text');
+      t.setAttribute('x', n.x); t.setAttribute('y', n.y + 24);
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-family','ui-monospace,Menlo,monospace');
+      t.setAttribute('font-size','11');
+      t.setAttribute('fill','#d7dbe3');
+      t.textContent = n.label;
+      g.appendChild(t);
+      svg.appendChild(g);
+    });
+
+    tag.textContent = 'c' + idx;
+    msg.textContent = state.msg;
+  }
+
+  let last = 0;
+  render(0);
+  slider.addEventListener('input', e=>{
+    const i = +e.target.value;
+    render(i, last);
+    last = i;
+  });
+
+  let playing = false, timer = null;
+  playBtn.addEventListener('click', ()=>{
+    if(playing){ clearInterval(timer); playing = false; playBtn.textContent='play'; return; }
+    playing = true; playBtn.textContent = 'pause';
+    timer = setInterval(()=>{
+      let i = +slider.value;
+      i = (i + 1) % commits.length;
+      slider.value = i;
+      render(i, last);
+      last = i;
+    }, 1100);
+  });
+})();
+
+/* ---------- Figure 2: hook flow timeline ---------- */
+(function(){
+  const svg = document.getElementById('hookFlow');
+  const NS = 'http://www.w3.org/2000/svg';
+  const steps = [
+    {x:60,  y:120, label:'git commit',        desc:'developer runs git commit on poc branch'},
+    {x:170, y:120, label:'post-commit',       desc:'git fires .git/hooks/post-commit'},
+    {x:280, y:120, label:'branch guard',      desc:'hook checks HEAD branch == poc; else exit 0'},
+    {x:395, y:120, label:'graphify update',   desc:'AST pass reruns on changed files via SHA256 cache'},
+    {x:515, y:120, label:'write graph.json',  desc:'updated graph.json + GRAPH_REPORT.md land in graphify-out/'},
+    {x:630, y:120, label:'snapshot',          desc:'copy to .graphify-snapshots/poc/ for AS OF queries'},
+    {x:705, y:120, label:'exit',              desc:'non-zero on failure so git surfaces the error'},
+  ];
+
+  function drawScaffold(){
+    svg.innerHTML = '';
+    const base = document.createElementNS(NS,'line');
+    base.setAttribute('x1',40); base.setAttribute('y1',120);
+    base.setAttribute('x2',720); base.setAttribute('y2',120);
+    base.setAttribute('stroke','#262c3a'); base.setAttribute('stroke-width',2);
+    svg.appendChild(base);
+
+    const side = document.createElementNS(NS,'g');
+    const rect = document.createElementNS(NS,'rect');
+    rect.setAttribute('x',250); rect.setAttribute('y',200); rect.setAttribute('width',320);
+    rect.setAttribute('height',40); rect.setAttribute('rx',6);
+    rect.setAttribute('fill','#1a1f2b'); rect.setAttribute('stroke','#262c3a');
+    side.appendChild(rect);
+    const t = document.createElementNS(NS,'text');
+    t.setAttribute('x',410); t.setAttribute('y',225);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-family','ui-monospace,Menlo,monospace');
+    t.setAttribute('font-size','11'); t.setAttribute('fill','#8892a6');
+    t.textContent = 'opencode tool.execute.before plugin reads graph.json (async)';
+    side.appendChild(t);
+    svg.appendChild(side);
+
+    const link = document.createElementNS(NS,'path');
+    link.setAttribute('d','M 515 135 Q 515 180 410 200');
+    link.setAttribute('stroke','#3a4a66'); link.setAttribute('fill','none');
+    link.setAttribute('stroke-dasharray','3 3');
+    svg.appendChild(link);
+
+    steps.forEach((s,i)=>{
+      const g = document.createElementNS(NS,'g');
+      g.setAttribute('data-i',i);
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('cx',s.x); c.setAttribute('cy',s.y);
+      c.setAttribute('r',11);
+      c.setAttribute('fill','#151821'); c.setAttribute('stroke','#3a4a66'); c.setAttribute('stroke-width',2);
+      c.setAttribute('data-idx',i);
+      g.appendChild(c);
+      const num = document.createElementNS(NS,'text');
+      num.setAttribute('x',s.x); num.setAttribute('y',s.y+4);
+      num.setAttribute('text-anchor','middle');
+      num.setAttribute('font-family','ui-monospace,Menlo,monospace');
+      num.setAttribute('font-size','10'); num.setAttribute('fill','#8892a6');
+      num.textContent = i;
+      g.appendChild(num);
+      const lbl = document.createElementNS(NS,'text');
+      lbl.setAttribute('x',s.x); lbl.setAttribute('y',s.y-22);
+      lbl.setAttribute('text-anchor','middle');
+      lbl.setAttribute('font-family','ui-monospace,Menlo,monospace');
+      lbl.setAttribute('font-size','11'); lbl.setAttribute('fill','#d7dbe3');
+      lbl.textContent = s.label;
+      g.appendChild(lbl);
+      svg.appendChild(g);
+    });
+  }
+
+  let active = -1;
+  const stepBtn = document.getElementById('stepBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const tag = document.getElementById('stepTag');
+  const desc = document.getElementById('stepDesc');
+
+  function paint(){
+    const circles = svg.querySelectorAll('circle[data-idx]');
+    circles.forEach((c,i)=>{
+      if(i <= active){
+        c.setAttribute('fill', i === active ? '#7ab6ff' : '#2a3a55');
+        c.setAttribute('stroke', i === active ? '#a8cfff' : '#3a4a66');
+      } else {
+        c.setAttribute('fill','#151821');
+        c.setAttribute('stroke','#3a4a66');
+      }
+    });
+    tag.textContent = Math.max(0,active+1) + ' / ' + steps.length;
+    desc.textContent = active >= 0 ? steps[active].desc : '';
+  }
+
+  drawScaffold(); paint();
+  stepBtn.onclick = ()=>{
+    active = active + 1;
+    if(active >= steps.length) active = 0;
+    paint();
+  };
+  resetBtn.onclick = ()=>{ active = -1; paint(); };
+})();
+
+/* ---------- Figure 3: AS OF diff ---------- */
+(function(){
+  const svg = document.getElementById('asofDiff');
+  const NS = 'http://www.w3.org/2000/svg';
+  const slider = document.getElementById('asofSlider');
+  const toggle = document.getElementById('asofToggle');
+
+  const nodes = [
+    {id:'svc',  x:140,y:80,  label:'ReportService',  status:'kept'},
+    {id:'rb',   x:260,y:140, label:'ReportBuilder',  status:'kept'},
+    {id:'qp',   x:140,y:200, label:'QueryPlanner',   status:'kept'},
+    {id:'jw',   x:400,y:90,  label:'JdbcWriter',     status:'kept'},
+    {id:'csv',  x:400,y:230, label:'CsvWriter',      status:'removed'},
+    {id:'s3',   x:520,y:230, label:'S3Writer',       status:'added'},
+    {id:'sch',  x:540,y:140, label:'ReportSchema',   status:'added'},
+    {id:'cache',x:260,y:50,  label:'ResultCache',    status:'added'},
+    {id:'col',  x:660,y:90,  label:'ColumnSpec',     status:'added'},
+    {id:'agg',  x:660,y:200, label:'Aggregator',     status:'added'},
+  ];
+  const edges = [
+    {a:'svc',  b:'rb',   status:'kept'},
+    {a:'qp',   b:'rb',   status:'kept'},
+    {a:'rb',   b:'jw',   status:'kept'},
+    {a:'rb',   b:'csv',  status:'removed'},
+    {a:'rb',   b:'s3',   status:'added'},
+    {a:'rb',   b:'cache',status:'added'},
+    {a:'rb',   b:'sch',  status:'added'},
+    {a:'sch',  b:'col',  status:'added'},
+    {a:'sch',  b:'agg',  status:'added'},
+    {a:'qp',   b:'cache',status:'added'},
+  ];
+
+  const byId = Object.fromEntries(nodes.map(n=>[n.id,n]));
+  let onlyChanges = false;
+
+  function colour(status, kind){
+    if(status==='kept')    return kind==='node' ? '#6b7280' : '#445066';
+    if(status==='added')   return kind==='node' ? '#7ee2a8' : '#3e8d6a';
+    if(status==='removed') return kind==='node' ? '#ff7a90' : '#8e4656';
+  }
+
+  function opacityForT(status, t){
+    const k = 1;
+    const a = t;
+    const r = 1 - t;
+    if(status==='kept') return k;
+    if(status==='added') return 0.15 + 0.85*a;
+    if(status==='removed') return 0.15 + 0.85*r;
+  }
+
+  function render(t){
+    svg.innerHTML = '';
+    const ge = document.createElementNS(NS,'g');
+    edges.forEach(e=>{
+      if(onlyChanges && e.status==='kept') return;
+      const A = byId[e.a], B = byId[e.b];
+      const l = document.createElementNS(NS,'line');
+      l.setAttribute('x1',A.x); l.setAttribute('y1',A.y);
+      l.setAttribute('x2',B.x); l.setAttribute('y2',B.y);
+      l.setAttribute('stroke', colour(e.status,'edge'));
+      l.setAttribute('stroke-width', e.status==='kept'?1:1.5);
+      l.setAttribute('stroke-opacity', opacityForT(e.status,t));
+      if(e.status==='removed') l.setAttribute('stroke-dasharray','5 3');
+      ge.appendChild(l);
+    });
+    svg.appendChild(ge);
+
+    nodes.forEach(n=>{
+      if(onlyChanges && n.status==='kept') return;
+      const op = opacityForT(n.status,t);
+      const g = document.createElementNS(NS,'g');
+      g.setAttribute('opacity', op);
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('cx',n.x); c.setAttribute('cy',n.y);
+      c.setAttribute('r', n.status==='kept'?8:10);
+      c.setAttribute('fill', colour(n.status,'node'));
+      c.setAttribute('stroke','#0f1115'); c.setAttribute('stroke-width',2);
+      g.appendChild(c);
+      const label = document.createElementNS(NS,'text');
+      label.setAttribute('x',n.x); label.setAttribute('y', n.y - 14);
+      label.setAttribute('text-anchor','middle');
+      label.setAttribute('font-family','ui-monospace,Menlo,monospace');
+      label.setAttribute('font-size','10.5');
+      label.setAttribute('fill','#d7dbe3');
+      label.textContent = n.label;
+      g.appendChild(label);
+      svg.appendChild(g);
+    });
+
+    const left = document.createElementNS(NS,'text');
+    left.setAttribute('x',20); left.setAttribute('y',30);
+    left.setAttribute('font-family','ui-monospace,Menlo,monospace');
+    left.setAttribute('font-size','11'); left.setAttribute('fill','#8892a6');
+    left.textContent = 'AS OF main';
+    svg.appendChild(left);
+    const right = document.createElementNS(NS,'text');
+    right.setAttribute('x',740); right.setAttribute('y',30);
+    right.setAttribute('text-anchor','end');
+    right.setAttribute('font-family','ui-monospace,Menlo,monospace');
+    right.setAttribute('font-size','11'); right.setAttribute('fill','#8892a6');
+    right.textContent = 'AS OF poc';
+    svg.appendChild(right);
+
+    const bar = document.createElementNS(NS,'line');
+    bar.setAttribute('x1', 20 + t*720); bar.setAttribute('y1', 10);
+    bar.setAttribute('x2', 20 + t*720); bar.setAttribute('y2', 20);
+    bar.setAttribute('stroke','#7ab6ff'); bar.setAttribute('stroke-width',2);
+    svg.appendChild(bar);
+  }
+
+  render(0);
+  slider.addEventListener('input', e=> render(+e.target.value / 100));
+  toggle.addEventListener('click', ()=>{
+    onlyChanges = !onlyChanges;
+    toggle.textContent = onlyChanges ? 'show all nodes' : 'show only changes';
+    render(+slider.value / 100);
+  });
+})();
+
+document.getElementById('builtDate').textContent = new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
