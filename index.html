@@ -277,19 +277,19 @@ graphify explain "ReportBuilder"</code></pre>
 
 <p>The branch-snapshot trick gets you <code>AS OF &lt;branch&gt;</code>. It does not get you <code>AS OF &lt;timestamp&gt;</code> or <code>AS OF &lt;commit&gt;</code> for arbitrary commits, because you only keep snapshots for branches you actually checked out. If you need a dense time axis (for example, to animate a full refactor across a hundred commits the way Figure 1 does with six), the honest answer is: script a <code>git worktree</code>, iterate commits, run <code>graphify update --no-viz</code>, archive the <code>graph.json</code>, move on. Minutes, not seconds, but perfectly tractable, and you only do it when you want the full film rather than the latest frame.</p>
 
-<p>If query volume against <code>graph.json</code> becomes the bottleneck before repo scope does, graphify ships an MCP server (<code>python -m graphify.serve graphify-out/graph.json</code>, install extras via <code>graphifyy[mcp]</code>) that exposes <code>query_graph</code>, <code>get_node</code>, <code>get_neighbors</code>, and <code>shortest_path</code> as tools. The assistant stops shelling out to the CLI per question and starts calling a structured API against the snapshot you pointed it at — which composes nicely with the per-branch snapshot directory: one <code>serve</code> invocation per branch, wired into the assistant'\''s <code>.mcp.json</code>.</p>
+<p>If query volume against <code>graph.json</code> becomes the bottleneck before repo scope does, graphify ships an MCP server (<code>python -m graphify.serve graphify-out/graph.json</code>, install extras via <code>graphifyy[mcp]</code>) that exposes <code>query_graph</code>, <code>get_node</code>, <code>get_neighbors</code>, and <code>shortest_path</code> as tools. The assistant stops shelling out to the CLI per question and starts calling a structured API against the snapshot you pointed it at, which composes nicely with the per-branch snapshot directory: one <code>serve</code> invocation per branch, wired into the assistant'\''s <code>.mcp.json</code>.</p>
 
 <p>For anything heavier (cross-repo graphs, a queryable graph DB, continuous graph over a fleet of machines) you are out of graphify'\''s stated scope and into its sibling project, Penpax, or a real graph DB backend. <code>--neo4j-push bolt://...</code> is the obvious escape hatch when you outgrow <code>graph.json</code> but not the extraction pipeline. For a single-repo reporting PoC the lightweight per-branch snapshot pattern is the right amount of machinery.</p>
 
 <h2>Sources</h2>
 <ul style="font-size:.92rem">
-  <li><a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy, LLM wiki gist</a> (Apr 2026) — the <code>index.md</code> + per-concept pages pattern graphify'\''s <code>--wiki</code> mode materializes</li>
-  <li><a href="https://github.com/safishamsi/graphify">safishamsi/graphify</a> (README, ARCHITECTURE.md, SECURITY.md) — v0.4.20 at time of writing</li>
-  <li><a href="https://github.com/safishamsi/graphify/releases">graphify release notes</a> — version-by-version extractor changes that shift the graph for the same source tree</li>
-  <li><a href="https://github.com/safishamsi/graphify/tree/main/worked/karpathy-repos">worked/karpathy-repos</a> in the repo — the actual <code>graph.json</code> / <code>GRAPH_REPORT.md</code> behind the 71.5x / 8.8x numbers, rerunnable</li>
-  <li><a href="https://graphify.net/">graphify.net</a> — worked example counts (httpx, Karpathy corpus) and pipeline stage breakdown</li>
-  <li><a href="https://www.analyticsvidhya.com/blog/2026/04/graphify-guide/">Analytics Vidhya, "From Karpathy'\''s LLM Wiki to Graphify"</a> — independent walkthrough of the three-pass model and always-on hook wiring</li>
-  <li><a href="https://medium.com/@mustafa.gencc94/graphify-build-a-knowledge-graph-from-your-entire-codebase-without-sending-your-code-to-anyone-1b6924474b50">Mustafa Genc, Medium</a> — data-residency analysis and caveats on the 71.5x claim</li>
+  <li><a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy, LLM wiki gist</a> (Apr 2026), the <code>index.md</code> + per-concept pages pattern graphify'\''s <code>--wiki</code> mode materializes</li>
+  <li><a href="https://github.com/safishamsi/graphify">safishamsi/graphify</a> (README, ARCHITECTURE.md, SECURITY.md), v0.4.20 at time of writing</li>
+  <li><a href="https://github.com/safishamsi/graphify/releases">graphify release notes</a>, version-by-version extractor changes that shift the graph for the same source tree</li>
+  <li><a href="https://github.com/safishamsi/graphify/tree/main/worked/karpathy-repos">worked/karpathy-repos</a> in the repo, the actual <code>graph.json</code> / <code>GRAPH_REPORT.md</code> behind the 71.5x / 8.8x numbers, rerunnable</li>
+  <li><a href="https://graphify.net/">graphify.net</a>, worked example counts (httpx, Karpathy corpus) and pipeline stage breakdown</li>
+  <li><a href="https://www.analyticsvidhya.com/blog/2026/04/graphify-guide/">Analytics Vidhya, "From Karpathy'\''s LLM Wiki to Graphify"</a>, independent walkthrough of the three-pass model and always-on hook wiring</li>
+  <li><a href="https://medium.com/@mustafa.gencc94/graphify-build-a-knowledge-graph-from-your-entire-codebase-without-sending-your-code-to-anyone-1b6924474b50">Mustafa Genc, Medium</a>, data-residency analysis and caveats on the 71.5x claim</li>
 </ul>
 
 <footer>
