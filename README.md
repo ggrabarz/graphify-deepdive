@@ -1,7 +1,7 @@
-# graphify-deepdive
+# Graphify: deep-dive
 
-Deep-dive on [graphify](https://github.com/safishamsi/graphify) as a code-structure graph tool for git repos: per-commit snapshotting, per-branch snapshotting, poor-man `\AS OF <branch>`\ time-travel, practical workflows, pitfalls.
+**Moved.** This content now lives at <https://ggrabarz.github.io/research/graphify-deepdive/>.
 
-Live: https://ggrabarz.github.io/graphify-deepdive/
+Source of truth: [ggrabarz/personal-tooling](https://github.com/ggrabarz/personal-tooling) (`graphify-deepdive.html`) → synced to [FylchSharptail/research](https://github.com/FylchSharptail/research) (private) → published to [ggrabarz/research](https://github.com/ggrabarz/research).
 
-Synced from [ggrabarz/personal-tooling](https://github.com/ggrabarz/personal-tooling) (`graphify-deepdive.html`).
+This repository is kept alive only to preserve the `ggrabarz.github.io/graphify-deepdive/` URL as a redirect. It is not updated.
